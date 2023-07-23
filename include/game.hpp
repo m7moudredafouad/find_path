@@ -9,7 +9,11 @@ class Game {
     uint32_t rows, cols;
 
   public:
-    Game() : m_window(sf::RenderWindow(sf::VideoMode(800, 600), "")), rows(20), cols(25) { ; }
+    Game()
+        : m_window(sf::RenderWindow(sf::VideoMode(800, 600), "")), rows(20),
+          cols(25) {
+        ;
+    }
 
     Game(uint32_t rows, uint32_t cols) : rows(rows), cols(cols) { ; }
 
@@ -18,6 +22,8 @@ class Game {
     sf::RenderWindow& GetWindow() { return m_window; }
 
     std::vector<std::vector<Cell>>& GetMatrix() { return m_matrix; }
+
+    template <typename T> void ForEachObject(T apply);
 
   private:
     sf::RenderWindow m_window;
