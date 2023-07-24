@@ -1,18 +1,19 @@
+#include <algo.hpp>
 #include <game.hpp>
-#include <iostream>
 
-#include <assert.h>
+#include <iostream>
 #include <stdint.h>
 #include <stdlib.h>
 #include <time.h>
 #include <unordered_set>
 
+SimplePathFind<Cell> simple_find;
+
 static void Events(Game* game) {
     auto& window = game->GetWindow();
 
-    sf::RectangleShape temp_shape;
     sf::Event event;
-    std::unordered_set<Cell*> map;
+    std::unordered_set<Object*> map;
 
     bool is_mouse_presed = false;
 
@@ -36,7 +37,7 @@ static void Events(Game* game) {
                 map.clear();
                 if (event.mouseButton.button == sf::Mouse::Left) {
                     is_mouse_presed = true;
-                    game->ForEachObject([&event, &map](Cell& cell) {
+                    game->ForEachObject([&event, &map](auto& cell) {
                         if (map.count(&cell) == 0 &&
                             cell.Contains(event.mouseButton.x,
                                           event.mouseButton.y)) {
@@ -44,6 +45,10 @@ static void Events(Game* game) {
                             cell.Click();
                         }
                     });
+                }
+
+                if (event.mouseButton.button == sf::Mouse::Right) {
+                    simple_find.Find(game->GetMatrix());
                 }
                 break;
             }
@@ -58,7 +63,7 @@ static void Events(Game* game) {
 
             case sf::Event::MouseMoved: {
                 if (is_mouse_presed) {
-                    game->ForEachObject([&event, &map](Cell& cell) {
+                    game->ForEachObject([&event, &map](auto& cell) {
                         if (map.count(&cell) == 0) {
                             if (cell.Contains(event.mouseMove.x,
                                               event.mouseMove.y)) {
@@ -82,30 +87,26 @@ static void Events(Game* game) {
 
 static void Render(Game* game) {
     auto& window = game->GetWindow();
-    auto& matrix = game->GetMatrix();
+    auto& font = game->GetFont();
 
     window.setActive(true);
 
-    sf::Font font;
     sf::Text text;
-    if (!font.loadFromFile("./fonts/arial.ttf"))
-        assert(0);
 
     text.setFont(font);
     text.setCharacterSize(16); // in pixels, not points!
     text.setFillColor(sf::Color::White);
 
     int fps = 0;
-    sf::RectangleShape temp_shape;
     sf::Clock clock;
     while (window.isOpen()) {
-        text.setString(std::to_string(fps));
+        text.setString("FPS: " + std::to_string(fps));
 
         sf::Time elapsed1 = clock.restart();
         window.clear();
 
         game->ForEachObject(
-            [&window](Cell& cell) { window.draw(*cell.GetShape()); });
+            [&window](auto& cell) { window.draw(*cell.GetShape()); });
 
         window.draw(text);
         window.display();
@@ -113,35 +114,12 @@ static void Render(Game* game) {
     }
 }
 
-// static void Random(Game* game) {
-//     auto& window = game->GetWindow();
-//     auto& matrix = game->GetMatrix();
-
-//     while (window.isOpen()) {
-//         auto x = rand() % game->cols;
-//         auto y = rand() % game->rows;
-
-//         matrix[y][x].color = matrix[y][x].color == sf::Color::White
-//                                  ? sf::Color::Red
-//                                  : sf::Color::White;
-
-//         sf::sleep(sf::milliseconds(100));
-//     }
-// }
-
 void Game::Loop() {
     m_window.setTitle("2dgame");
 
     m_matrix = std::vector<std::vector<Cell>>(rows, std::vector<Cell>(cols));
 
-    int offset_y = 30;
-
-    for (uint32_t i = 0; i < rows; i++) {
-        for (uint32_t j = 0; j < cols; j++) {
-            m_matrix[i][j] = Cell(j * padding, i * padding + offset_y, width,
-                                  height, sf::Color::White);
-        }
-    }
+    Restart();
 
     m_window.setActive(false);
 
@@ -151,10 +129,8 @@ void Game::Loop() {
     sf::Thread event_thread(&Events, this);
     event_thread.launch();
 
-    // sf::Thread random_thread(&Random, this);
-    // random_thread.launch();
-
     while (m_window.isOpen()) {
+        ;
     }
 
     render_thread.wait();
@@ -167,4 +143,39 @@ template <typename T> void Game::ForEachObject(T apply) {
             apply(mcol);
         }
     }
+
+    for (auto& btn : m_buttons) {
+        apply(btn);
+    }
+}
+
+template <typename T> void Game::ForEachCell(T apply) {
+    for (auto& mrow : m_matrix) {
+        for (auto& mcol : mrow) {
+            apply(mcol);
+        }
+    }
+}
+
+void Game::Restart() {
+
+    int offset_y = 30;
+    int offset_x = 100;
+
+    for (uint32_t i = 0; i < rows; i++) {
+        for (uint32_t j = 0; j < cols; j++) {
+            m_matrix[i][j] = Cell(j * padding + offset_x,
+                                  i * padding + offset_y, width, height);
+        }
+    }
+
+    m_matrix[0][0].UpdateType(Cell::Type::kStart);
+    m_matrix[rows - 1][cols - 1].UpdateType(Cell::Type::kEnd);
+
+    m_buttons.clear();
+
+    m_buttons.push_back(Button(0.f, 50.f, 60.f, 20.f, m_font, "Restart"));
+    m_buttons[0].SetClickFuntion([&] () {
+        this->Restart();
+    });
 }
