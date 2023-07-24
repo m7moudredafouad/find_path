@@ -8,4 +8,4 @@ file(GLOB SRC_FILES
 add_executable(2dgame ${SRC_FILES})
 target_include_directories(2dgame PUBLIC include/)
 
-target_link_libraries(2dgame PUBLIC sfml-graphics sfml-window sfml-system)
+target_link_libraries(2dgame PUBLIC sfml-graphics sfml-window sfml-system X11)
