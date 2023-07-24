@@ -5,19 +5,26 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <time.h>
+#include <unordered_set>
 
 static void Events(Game* game) {
     auto& window = game->GetWindow();
 
     sf::RectangleShape temp_shape;
+    sf::Event event;
+    std::unordered_set<Cell*> map;
+
+    bool is_mouse_presed = false;
 
     while (window.isOpen()) {
-        sf::Event event;
         while (window.pollEvent(event)) {
             switch (event.type) {
+            default:
+                break;
             case sf::Event::Closed: {
                 window.close();
-                break;
+                exit(EXIT_SUCCESS);
+                return;
             }
             case sf::Event::Resized: {
                 sf::View view(sf::FloatRect(0.f, 0.f, event.size.width,
@@ -26,20 +33,48 @@ static void Events(Game* game) {
                 break;
             }
             case sf::Event::MouseButtonPressed: {
+                map.clear();
                 if (event.mouseButton.button == sf::Mouse::Left) {
-                    game->ForEachObject(
-                        [event](Cell& cell) {
-                            if(cell.contains(event.mouseButton.x, event.mouseButton.y)) {
-                                std::cout << cell.x << " " << cell.y << std::endl;
-                            }
-                        });
+                    is_mouse_presed = true;
+                    game->ForEachObject([&event, &map](Cell& cell) {
+                        if (map.count(&cell) == 0 &&
+                            cell.Contains(event.mouseButton.x,
+                                          event.mouseButton.y)) {
+                            map.insert(&cell);
+                            cell.Click();
+                        }
+                    });
                 }
                 break;
             }
 
-            default:
-                sf::sleep(sf::milliseconds(20));
+            case sf::Event::MouseButtonReleased: {
+                if (event.mouseButton.button == sf::Mouse::Left) {
+                    is_mouse_presed = false;
+                    map.clear();
+                }
                 break;
+            }
+
+            case sf::Event::MouseMoved: {
+                if (is_mouse_presed) {
+                    game->ForEachObject([&event, &map](Cell& cell) {
+                        if (map.count(&cell) == 0) {
+                            if (cell.Contains(event.mouseMove.x,
+                                              event.mouseMove.y)) {
+                                map.insert(&cell);
+                                cell.Click();
+                            }
+                        } else {
+                            if (!cell.Contains(event.mouseMove.x,
+                                               event.mouseMove.y)) {
+                                map.erase(&cell);
+                            }
+                        }
+                    });
+                }
+                break;
+            }
             }
         }
     }
@@ -69,16 +104,8 @@ static void Render(Game* game) {
         sf::Time elapsed1 = clock.restart();
         window.clear();
 
-        for (uint32_t i = 0; i < matrix.size(); i++) {
-            for (uint32_t j = 0; j < matrix[i].size(); j++) {
-                auto& el = matrix[i][j];
-                temp_shape.setSize(sf::Vector2f(el.width, el.height));
-                temp_shape.setFillColor(el.color);
-                temp_shape.setPosition(sf::Vector2f(el.x, el.y));
-
-                window.draw(temp_shape);
-            }
-        }
+        game->ForEachObject(
+            [&window](Cell& cell) { window.draw(*cell.GetShape()); });
 
         window.draw(text);
         window.display();
@@ -86,21 +113,21 @@ static void Render(Game* game) {
     }
 }
 
-static void Random(Game* game) {
-    auto& window = game->GetWindow();
-    auto& matrix = game->GetMatrix();
+// static void Random(Game* game) {
+//     auto& window = game->GetWindow();
+//     auto& matrix = game->GetMatrix();
 
-    while (window.isOpen()) {
-        auto x = rand() % game->cols;
-        auto y = rand() % game->rows;
+//     while (window.isOpen()) {
+//         auto x = rand() % game->cols;
+//         auto y = rand() % game->rows;
 
-        matrix[y][x].color = matrix[y][x].color == sf::Color::White
-                                 ? sf::Color::Red
-                                 : sf::Color::White;
+//         matrix[y][x].color = matrix[y][x].color == sf::Color::White
+//                                  ? sf::Color::Red
+//                                  : sf::Color::White;
 
-        sf::sleep(sf::milliseconds(100));
-    }
-}
+//         sf::sleep(sf::milliseconds(100));
+//     }
+// }
 
 void Game::Loop() {
     m_window.setTitle("2dgame");
@@ -111,8 +138,8 @@ void Game::Loop() {
 
     for (uint32_t i = 0; i < rows; i++) {
         for (uint32_t j = 0; j < cols; j++) {
-            m_matrix[i][j] =
-                Cell{j * padding, i * padding + offset_y, width, height, sf::Color::White};
+            m_matrix[i][j] = Cell(j * padding, i * padding + offset_y, width,
+                                  height, sf::Color::White);
         }
     }
 
@@ -124,11 +151,14 @@ void Game::Loop() {
     sf::Thread event_thread(&Events, this);
     event_thread.launch();
 
-    sf::Thread random_thread(&Random, this);
-    random_thread.launch();
+    // sf::Thread random_thread(&Random, this);
+    // random_thread.launch();
 
     while (m_window.isOpen()) {
     }
+
+    render_thread.wait();
+    event_thread.wait();
 }
 
 template <typename T> void Game::ForEachObject(T apply) {
