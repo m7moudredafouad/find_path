@@ -28,15 +28,14 @@ class Game {
     const sf::Font& GetFont() const { return m_font; }
 
     template <typename T> void ForEachObject(T apply);
-    template <typename T> void ForEachCell(T apply);
 
   private:
     sf::RenderWindow m_window;
     sf::Font m_font;
     std::vector<std::vector<Cell>> m_matrix;
-    std::vector<Button> m_buttons;
+    std::vector<std::unique_ptr<Object>> m_objects;
     float padding = 27.f, width = 25.f, height = 25.f;
 
-    void Restart();
+    void Init();
     void ResetMatrix();
 };

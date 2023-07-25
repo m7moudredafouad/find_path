@@ -1,24 +1,22 @@
 #include <algo.hpp>
+#include <event.hpp>
 #include <game.hpp>
 
 #include <iostream>
 #include <stdint.h>
 #include <stdlib.h>
-#include <time.h>
 #include <unordered_set>
 
 SimplePathFind<Cell> simple_find;
 TmpPathFind<Cell> tmp_find;
-
 Algorithm<std::vector<std::vector<Cell>>>* algo;
 
-static void Events(Game* game) {
+EventManager event_manager;
+
+static void PollEvents(Game* game) {
     auto& window = game->GetWindow();
 
     sf::Event event;
-    std::unordered_set<Object*> map;
-
-    bool is_mouse_presed = false;
 
     while (window.isOpen()) {
         while (window.pollEvent(event)) {
@@ -36,55 +34,21 @@ static void Events(Game* game) {
                 window.setView(view);
                 break;
             }
-            case sf::Event::MouseButtonPressed: {
-                map.clear();
-                if (event.mouseButton.button == sf::Mouse::Left) {
-                    is_mouse_presed = true;
-                    game->ForEachObject([&event, &map](auto& cell) {
-                        if (map.count(&cell) == 0 &&
-                            cell.Contains(event.mouseButton.x,
-                                          event.mouseButton.y)) {
-                            map.insert(&cell);
-                            cell.Click();
-                        }
-                    });
-                }
-
-                if (event.mouseButton.button == sf::Mouse::Right) {
-                    algo->Apply(game->GetMatrix());
-                }
-                break;
-            }
-
-            case sf::Event::MouseButtonReleased: {
-                if (event.mouseButton.button == sf::Mouse::Left) {
-                    is_mouse_presed = false;
-                    map.clear();
-                }
-                break;
-            }
-
+            case sf::Event::MouseButtonPressed:
+            case sf::Event::MouseButtonReleased:
             case sf::Event::MouseMoved: {
-                if (is_mouse_presed) {
-                    game->ForEachObject([&event, &map](auto& cell) {
-                        if (map.count(&cell) == 0) {
-                            if (cell.Contains(event.mouseMove.x,
-                                              event.mouseMove.y)) {
-                                map.insert(&cell);
-                                cell.Click();
-                            }
-                        } else {
-                            if (!cell.Contains(event.mouseMove.x,
-                                               event.mouseMove.y)) {
-                                map.erase(&cell);
-                            }
-                        }
-                    });
-                }
+                event_manager.AddEvent(event);
                 break;
             }
             }
         }
+    }
+}
+
+static void HandleEvents(Game* game) {
+    auto& window = game->GetWindow();
+    while (window.isOpen()) {
+        event_manager.Handle();
     }
 }
 
@@ -94,16 +58,12 @@ static void Render(Game* game) {
 
     window.setActive(true);
 
-    sf::Text text;
-
-    text.setFont(font);
-    text.setCharacterSize(16); // in pixels, not points!
-    text.setFillColor(sf::Color::White);
+    Text text(0.f, 0.f, 10.f, 5.f, font, std::string(""));
 
     int fps = 0;
     sf::Clock clock;
     while (window.isOpen()) {
-        text.setString("FPS: " + std::to_string(fps));
+        text.SetText("FPS: " + std::to_string(fps));
 
         sf::Time elapsed1 = clock.restart();
         window.clear();
@@ -111,7 +71,7 @@ static void Render(Game* game) {
         game->ForEachObject(
             [&window](auto& cell) { window.draw(*cell.GetShape()); });
 
-        window.draw(text);
+        window.draw(*text.GetShape());
         window.display();
         fps = 1 / elapsed1.asSeconds();
     }
@@ -122,22 +82,26 @@ void Game::Loop() {
 
     m_matrix = std::vector<std::vector<Cell>>(rows, std::vector<Cell>(cols));
 
-    Restart();
+    Init();
 
     m_window.setActive(false);
 
     sf::Thread render_thread(&Render, this);
     render_thread.launch();
 
-    sf::Thread event_thread(&Events, this);
-    event_thread.launch();
+    sf::Thread poll_event_thread(&PollEvents, this);
+    poll_event_thread.launch();
+
+    sf::Thread handle_event_thread(&HandleEvents, this);
+    handle_event_thread.launch();
 
     while (m_window.isOpen()) {
         ;
     }
 
     render_thread.wait();
-    event_thread.wait();
+    poll_event_thread.wait();
+    handle_event_thread.wait();
 }
 
 template <typename T> void Game::ForEachObject(T apply) {
@@ -147,20 +111,12 @@ template <typename T> void Game::ForEachObject(T apply) {
         }
     }
 
-    for (auto& btn : m_buttons) {
-        apply(btn);
+    for (auto& btn : m_objects) {
+        apply(*btn);
     }
 }
 
-template <typename T> void Game::ForEachCell(T apply) {
-    for (auto& mrow : m_matrix) {
-        for (auto& mcol : mrow) {
-            apply(mcol);
-        }
-    }
-}
-
-void Game::Restart() {
+void Game::Init() {
 
     algo = &simple_find;
 
@@ -171,30 +127,63 @@ void Game::Restart() {
         for (uint32_t j = 0; j < cols; j++) {
             m_matrix[i][j] = Cell(j * padding + offset_x,
                                   i * padding + offset_y, width, height);
+
+            event_manager.AddEventListener(EventManager::event_t::kLeftPress,
+                                           &m_matrix[i][j]);
         }
     }
 
     m_matrix[0][0].UpdateType(Cell::Type::kStart);
     m_matrix[rows - 1][cols - 1].UpdateType(Cell::Type::kEnd);
 
-    m_buttons.clear();
+    m_objects.push_back(std::unique_ptr<Object>(
+        new Button(10.f, 50.f, 80.f, 20.f, m_font, "Restart")));
 
-    m_buttons.push_back(Button(10.f, 50.f, 80.f, 20.f, m_font, "Restart"));
-    m_buttons.push_back(Button(10.f, 72.f, 80.f, 20.f, m_font, "Simple find"));
-    m_buttons.push_back(Button(10.f, 94.f, 80.f, 20.f, m_font, "Tmp find"));
+    m_objects.push_back(std::unique_ptr<Object>(
+        new Button(10.f, 72.f, 80.f, 20.f, m_font, "Find")));
 
-    m_buttons[0].SetClickFuntion([&]() { this->ResetMatrix(); });
+    m_objects.push_back(std::unique_ptr<Object>(
+        new Button(10.f, 94.f, 80.f, 20.f, m_font, "Simple find")));
 
-    m_buttons[1].SetClickFuntion([&]() { algo = &simple_find; });
+    m_objects.push_back(std::unique_ptr<Object>(
+        new Button(10.f, 116.f, 80.f, 20.f, m_font, "Tmp find")));
 
-    m_buttons[2].SetClickFuntion([&]() { algo = &tmp_find; });
+    m_objects[0]->SetClickFuntion([&]() {
+        this->ResetMatrix();
+    });
+
+    m_objects[1]->SetClickFuntion([&]() {
+        ResetMatrix();
+        algo->Apply(GetMatrix());
+    });
+
+    m_objects[2]->SetClickFuntion([&]() {
+        algo = &simple_find;
+        std::cout << "Simple find algorithm was selected" << std::endl;
+    });
+
+    m_objects[3]->SetClickFuntion([&]() {
+        algo = &tmp_find;
+        std::cout << "Tmp find algorithm was selected" << std::endl;
+    });
+
+    event_manager.AddEventListener(EventManager::event_t::kClick,
+                                   m_objects[0].get());
+    event_manager.AddEventListener(EventManager::event_t::kClick,
+                                   m_objects[1].get());
+    event_manager.AddEventListener(EventManager::event_t::kClick,
+                                   m_objects[2].get());
+    event_manager.AddEventListener(EventManager::event_t::kClick,
+                                   m_objects[3].get());
 }
 
 void Game::ResetMatrix() {
-    ForEachCell([](auto& cell) {
-        if (cell.IsVisited()) {
+    for (auto& mrow : m_matrix) {
+        for (auto& cell : mrow) {
+            if (cell.IsVisited()) {
             cell.UpdateType(Cell::Type::kOpen);
         }
-    });
+        }
+    }
     m_matrix[0][0].UpdateType(Cell::Type::kStart);
 }
