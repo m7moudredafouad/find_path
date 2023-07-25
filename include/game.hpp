@@ -38,4 +38,5 @@ class Game {
     float padding = 27.f, width = 25.f, height = 25.f;
 
     void Restart();
+    void ResetMatrix();
 };

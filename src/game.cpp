@@ -8,6 +8,9 @@
 #include <unordered_set>
 
 SimplePathFind<Cell> simple_find;
+TmpPathFind<Cell> tmp_find;
+
+Algorithm<std::vector<std::vector<Cell>>>* algo;
 
 static void Events(Game* game) {
     auto& window = game->GetWindow();
@@ -48,7 +51,7 @@ static void Events(Game* game) {
                 }
 
                 if (event.mouseButton.button == sf::Mouse::Right) {
-                    simple_find.Find(game->GetMatrix());
+                    algo->Apply(game->GetMatrix());
                 }
                 break;
             }
@@ -159,6 +162,8 @@ template <typename T> void Game::ForEachCell(T apply) {
 
 void Game::Restart() {
 
+    algo = &simple_find;
+
     int offset_y = 30;
     int offset_x = 100;
 
@@ -174,8 +179,22 @@ void Game::Restart() {
 
     m_buttons.clear();
 
-    m_buttons.push_back(Button(0.f, 50.f, 60.f, 20.f, m_font, "Restart"));
-    m_buttons[0].SetClickFuntion([&] () {
-        this->Restart();
+    m_buttons.push_back(Button(10.f, 50.f, 80.f, 20.f, m_font, "Restart"));
+    m_buttons.push_back(Button(10.f, 72.f, 80.f, 20.f, m_font, "Simple find"));
+    m_buttons.push_back(Button(10.f, 94.f, 80.f, 20.f, m_font, "Tmp find"));
+
+    m_buttons[0].SetClickFuntion([&]() { this->ResetMatrix(); });
+
+    m_buttons[1].SetClickFuntion([&]() { algo = &simple_find; });
+
+    m_buttons[2].SetClickFuntion([&]() { algo = &tmp_find; });
+}
+
+void Game::ResetMatrix() {
+    ForEachCell([](auto& cell) {
+        if (cell.IsVisited()) {
+            cell.UpdateType(Cell::Type::kOpen);
+        }
     });
+    m_matrix[0][0].UpdateType(Cell::Type::kStart);
 }

@@ -74,6 +74,8 @@ class Button : public Object {
 
         auto offset_x = (width - m_draw_text.getGlobalBounds().width) / 2;
         m_draw_text.setPosition(sf::Vector2f(offset_x, 0));
+
+        m_func = [] () {};
     }
 
     virtual void Click() override;
