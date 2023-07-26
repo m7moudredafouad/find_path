@@ -11,8 +11,8 @@ class Game {
 
   public:
     Game()
-        : m_window(sf::RenderWindow(sf::VideoMode(800, 600), "")), rows(20),
-          cols(25) {
+        : m_window(sf::RenderWindow(sf::VideoMode(1280 , 720), "")), rows(45),
+          cols(60) {
         if (!m_font.loadFromFile("./fonts/arial.ttf"))
             assert(0);
     }
@@ -34,7 +34,7 @@ class Game {
     sf::Font m_font;
     std::vector<std::vector<Cell>> m_matrix;
     std::vector<std::unique_ptr<Object>> m_objects;
-    float padding = 27.f, width = 25.f, height = 25.f;
+    float padding = 16.f, width = 15.f, height = 15.f;
 
     void Init();
     void ResetMatrix();

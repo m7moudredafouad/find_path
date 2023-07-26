@@ -13,38 +13,6 @@ Algorithm<std::vector<std::vector<Cell>>>* algo;
 
 EventManager event_manager;
 
-static void PollEvents(Game* game) {
-    auto& window = game->GetWindow();
-
-    sf::Event event;
-
-    while (window.isOpen()) {
-        while (window.pollEvent(event)) {
-            switch (event.type) {
-            default:
-                break;
-            case sf::Event::Closed: {
-                window.close();
-                exit(EXIT_SUCCESS);
-                return;
-            }
-            case sf::Event::Resized: {
-                sf::View view(sf::FloatRect(0.f, 0.f, event.size.width,
-                                            event.size.height));
-                window.setView(view);
-                break;
-            }
-            case sf::Event::MouseButtonPressed:
-            case sf::Event::MouseButtonReleased:
-            case sf::Event::MouseMoved: {
-                event_manager.AddEvent(event);
-                break;
-            }
-            }
-        }
-    }
-}
-
 static void HandleEvents(Game* game) {
     auto& window = game->GetWindow();
     while (window.isOpen()) {
@@ -89,18 +57,36 @@ void Game::Loop() {
     sf::Thread render_thread(&Render, this);
     render_thread.launch();
 
-    sf::Thread poll_event_thread(&PollEvents, this);
-    poll_event_thread.launch();
-
     sf::Thread handle_event_thread(&HandleEvents, this);
     handle_event_thread.launch();
 
+    sf::Event event;
     while (m_window.isOpen()) {
-        ;
+        while (m_window.pollEvent(event)) {
+            switch (event.type) {
+            default:
+                break;
+            case sf::Event::MouseButtonPressed:
+            case sf::Event::MouseButtonReleased:
+            case sf::Event::MouseMoved: {
+                event_manager.AddEvent(event);
+                break;
+            }
+            case sf::Event::Resized: {
+                sf::View view(sf::FloatRect(0.f, 0.f, event.size.width,
+                                            event.size.height));
+                m_window.setView(view);
+                break;
+            }
+            case sf::Event::Closed: {
+                m_window.close();
+                break;
+            }
+            }
+        }
     }
 
     render_thread.wait();
-    poll_event_thread.wait();
     handle_event_thread.wait();
 }
 
@@ -120,7 +106,7 @@ void Game::Init() {
 
     algo = &simple_find;
 
-    int offset_y = 30;
+    int offset_y = 0;
     int offset_x = 100;
 
     for (uint32_t i = 0; i < rows; i++) {
@@ -148,9 +134,7 @@ void Game::Init() {
     m_objects.push_back(std::unique_ptr<Object>(
         new Button(10.f, 116.f, 80.f, 20.f, m_font, "Tmp find")));
 
-    m_objects[0]->SetClickFuntion([&]() {
-        this->ResetMatrix();
-    });
+    m_objects[0]->SetClickFuntion([&]() { this->ResetMatrix(); });
 
     m_objects[1]->SetClickFuntion([&]() {
         ResetMatrix();
@@ -181,8 +165,8 @@ void Game::ResetMatrix() {
     for (auto& mrow : m_matrix) {
         for (auto& cell : mrow) {
             if (cell.IsVisited()) {
-            cell.UpdateType(Cell::Type::kOpen);
-        }
+                cell.UpdateType(Cell::Type::kOpen);
+            }
         }
     }
     m_matrix[0][0].UpdateType(Cell::Type::kStart);
