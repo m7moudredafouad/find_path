@@ -9,7 +9,6 @@
 
 SimplePathFind<Cell> simple_find;
 TmpPathFind<Cell> tmp_find;
-Algorithm<std::vector<std::vector<Cell>>>* algo;
 
 EventManager event_manager;
 
@@ -104,10 +103,9 @@ template <typename T> void Game::ForEachObject(T apply) {
 
 void Game::Init() {
 
-    algo = &simple_find;
-
     int offset_y = 0;
     int offset_x = 100;
+    float padding = 16.f, width = 15.f, height = 15.f;
 
     for (uint32_t i = 0; i < rows; i++) {
         for (uint32_t j = 0; j < cols; j++) {
@@ -122,33 +120,27 @@ void Game::Init() {
     m_matrix[0][0].UpdateType(Cell::Type::kStart);
     m_matrix[rows - 1][cols - 1].UpdateType(Cell::Type::kEnd);
 
-    m_objects.push_back(std::unique_ptr<Object>(
-        new Button(10.f, 50.f, 80.f, 20.f, m_font, "Restart")));
+    float btn_width = 90.f, btn_height = 20.f;
 
     m_objects.push_back(std::unique_ptr<Object>(
-        new Button(10.f, 72.f, 80.f, 20.f, m_font, "Find")));
+        new Button(0.f, 30.f, btn_width, btn_height, m_font, "Restart")));
 
     m_objects.push_back(std::unique_ptr<Object>(
-        new Button(10.f, 94.f, 80.f, 20.f, m_font, "Simple find")));
+        new Button(0.f, 52.f, btn_width, btn_height, m_font, "Loop find")));
 
     m_objects.push_back(std::unique_ptr<Object>(
-        new Button(10.f, 116.f, 80.f, 20.f, m_font, "Tmp find")));
+        new Button(0.f, 74.f, btn_width, btn_height, m_font, "DFS find")));
 
     m_objects[0]->SetClickFuntion([&]() { this->ResetMatrix(); });
 
     m_objects[1]->SetClickFuntion([&]() {
         ResetMatrix();
-        algo->Apply(GetMatrix());
+        simple_find.Apply(GetMatrix());
     });
 
     m_objects[2]->SetClickFuntion([&]() {
-        algo = &simple_find;
-        std::cout << "Simple find algorithm was selected" << std::endl;
-    });
-
-    m_objects[3]->SetClickFuntion([&]() {
-        algo = &tmp_find;
-        std::cout << "Tmp find algorithm was selected" << std::endl;
+        ResetMatrix();
+        tmp_find.Apply(GetMatrix());
     });
 
     event_manager.AddEventListener(EventManager::event_t::kClick,
@@ -157,8 +149,6 @@ void Game::Init() {
                                    m_objects[1].get());
     event_manager.AddEventListener(EventManager::event_t::kClick,
                                    m_objects[2].get());
-    event_manager.AddEventListener(EventManager::event_t::kClick,
-                                   m_objects[3].get());
 }
 
 void Game::ResetMatrix() {

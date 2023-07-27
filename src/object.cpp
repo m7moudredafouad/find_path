@@ -17,10 +17,6 @@ bool Object::Within(float x1, float y1, float x2, float y2) const {
     auto right_a = std::max(x1, x2);
     auto top_a = std::max(y1, y2);
 
-    // if (pos_x >= min_x && pos_x <= max_y && pos_y >= min_y && pos_y <= max_y)
-    //     return true;
-    // return false;
-
     return std::max(pos_x, left_a) < std::min(pos_x + width, right_a)
     && std::max(pos_y, top_a) < std::min(pos_x + height, bottom_a);
 
@@ -69,19 +65,19 @@ std::unique_ptr<sf::Drawable> Cell::GetShape() {
         break;
     }
     case Type::kBlock: {
-        color = sf::Color::Red;
+        color = sf::Color::Black;
         break;
     }
     case Type::kStart: {
-        color = sf::Color::Blue;
+        color = sf::Color::Red;
         break;
     }
     case Type::kVisited: {
-        color = sf::Color::Magenta;
+        color = sf::Color::Yellow;
         break;
     }
     case Type::kEnd: {
-        color = sf::Color::Green;
+        color = sf::Color::Blue;
         break;
     }
 

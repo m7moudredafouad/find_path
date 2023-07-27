@@ -34,7 +34,6 @@ class Game {
     sf::Font m_font;
     std::vector<std::vector<Cell>> m_matrix;
     std::vector<std::unique_ptr<Object>> m_objects;
-    float padding = 16.f, width = 15.f, height = 15.f;
 
     void Init();
     void ResetMatrix();

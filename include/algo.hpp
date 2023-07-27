@@ -1,4 +1,5 @@
 #pragma once
+#include <SFML/Graphics.hpp>
 #include <vector>
 
 template <typename T> class Algorithm {
@@ -41,9 +42,9 @@ class TmpPathFind : public Algorithm<std::vector<std::vector<T>>> {
     bool Find(std::vector<std::vector<T>>& matrix, int i, int j) {
         static int dirs[][2] = {
             {1, 0},
-            {-1, 0},
             {0, -1},
             {0, 1},
+            {-1, 0},
         };
 
         if (i < 0 || j < 0 || i >= matrix.size() || j >= matrix[0].size())
@@ -51,6 +52,7 @@ class TmpPathFind : public Algorithm<std::vector<std::vector<T>>> {
 
         if (matrix[i][j].IsBlock())
             return false;
+
         if (matrix[i][j].IsEnd())
             return true;
 
@@ -62,6 +64,7 @@ class TmpPathFind : public Algorithm<std::vector<std::vector<T>>> {
         for (auto& dir : dirs) {
             if (Find(matrix, i + dir[0], j + dir[1]))
                 return true;
+            sf::sleep(sf::milliseconds(10));
         }
 
         return false;
